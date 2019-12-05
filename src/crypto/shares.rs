@@ -2,7 +2,7 @@ use crate::crypto::{rnd_scalar};
 
 use clear_on_drop::clear::Clear;
 use core::ops::{Add, Mul, Sub};
-use bls12_381::{Scalar, G2Projective};
+use bls12_381::{Scalar, G1Projective};
 
 //-----------------------------------------------------------------------------------------------------------
 // Shared traits and functions for Polynomial and PointPolynomial
@@ -102,9 +102,9 @@ impl Mul<Scalar> for Share {
     }
 }
 
-impl Mul<G2Projective> for Share {
+impl Mul<G1Projective> for Share {
     type Output = PointShare;
-    fn mul(self, rhs: G2Projective) -> PointShare {
+    fn mul(self, rhs: G1Projective) -> PointShare {
         PointShare { i: self.i, Yi: rhs * self.yi }
     }
 }
@@ -115,19 +115,19 @@ impl Mul<G2Projective> for Share {
 #[derive(Debug, Clone)]
 pub struct PointShare {
     pub i: u32,
-    pub Yi: G2Projective
+    pub Yi: G1Projective
 }
 
-impl Add<G2Projective> for PointShare {
+impl Add<G1Projective> for PointShare {
     type Output = PointShare;
-    fn add(self, rhs: G2Projective) -> PointShare {
+    fn add(self, rhs: G1Projective) -> PointShare {
         PointShare { i: self.i, Yi: self.Yi + rhs }
     }
 }
 
-impl Sub<G2Projective> for PointShare {
+impl Sub<G1Projective> for PointShare {
     type Output = PointShare;
-    fn sub(self, rhs: G2Projective) -> PointShare {
+    fn sub(self, rhs: G1Projective) -> PointShare {
         PointShare { i: self.i, Yi: self.Yi - rhs }
     }
 }
@@ -164,9 +164,9 @@ impl Mul<Scalar> for Polynomial {
     }
 }
 
-impl Mul<G2Projective> for Polynomial {
+impl Mul<G1Projective> for Polynomial {
     type Output = PointPolynomial;
-    fn mul(self, rhs: G2Projective) -> PointPolynomial {
+    fn mul(self, rhs: G1Projective) -> PointPolynomial {
         PointPolynomial {
             A: self.a.iter().map(|ak| rhs * ak).collect::<Vec<_>>()
         }
@@ -230,7 +230,7 @@ impl Degree for Polynomial {
 //-----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PointPolynomial {
-    pub A: Vec<G2Projective>
+    pub A: Vec<G1Projective>
 }
 
 impl Mul<Scalar> for PointPolynomial {
@@ -250,8 +250,8 @@ impl PointPolynomial {
 }
 
 impl Evaluate for PointPolynomial {
-    type Output = G2Projective;
-    fn evaluate(&self, x: Scalar) -> G2Projective {
+    type Output = G1Projective;
+    fn evaluate(&self, x: Scalar) -> G1Projective {
         // evaluate using Horner's rule
         let mut rev = self.A.iter().rev();
         let head = *rev.next().unwrap();
@@ -296,9 +296,9 @@ impl Mul<Scalar> for ShareVector {
     }
 }
 
-impl Mul<G2Projective> for ShareVector {
+impl Mul<G1Projective> for ShareVector {
     type Output = PointShareVector;
-    fn mul(self, rhs: G2Projective) -> PointShareVector {
+    fn mul(self, rhs: G1Projective) -> PointShareVector {
         let res = self.0.iter().map(|s| PointShare { i: s.i, Yi: rhs * s.yi }).collect::<Vec<_>>();
         PointShareVector(res)
     }
@@ -324,9 +324,9 @@ impl Interpolate for ShareVector {
 #[derive(Debug, Clone)]
 pub struct PointShareVector(pub Vec<PointShare>);
 
-impl Add<G2Projective> for PointShareVector {
+impl Add<G1Projective> for PointShareVector {
     type Output = PointShareVector;
-    fn add(self, rhs: G2Projective) -> PointShareVector {
+    fn add(self, rhs: G1Projective) -> PointShareVector {
         let res = self.0.iter().map(|s| PointShare { i: s.i, Yi: s.Yi + rhs }).collect::<Vec<_>>();
         PointShareVector(res)
     }
@@ -341,12 +341,12 @@ impl Mul<Scalar> for PointShareVector {
 }
 
 impl Interpolate for PointShareVector {
-    type Output = G2Projective;
+    type Output = G1Projective;
 
-    fn interpolate(&self) -> G2Projective {
+    fn interpolate(&self) -> G1Projective {
         let range = self.0.iter().map(|s| Scalar::from(s.i as u64)).collect::<Vec<_>>();
 
-        let mut acc = G2Projective::identity();
+        let mut acc = G1Projective::identity();
         for (i, item) in self.0.iter().enumerate() {
             acc += item.Yi * Polynomial::l_i(&range, i);
         }
@@ -361,7 +361,7 @@ impl Reconstruct for PointShareVector {
     fn reconstruct(&self) -> PointPolynomial {
         let range = self.0.iter().map(|s| Scalar::from(s.i as u64)).collect::<Vec<_>>();
 
-        let mut acc = vec![G2Projective::identity(); range.len()];
+        let mut acc = vec![G1Projective::identity(); range.len()];
         for (i, item) in self.0.iter().enumerate() {
             let (num, barycentric) = lx_num_bar(&range, i);
             for j in 0..num.len() {
@@ -369,7 +369,7 @@ impl Reconstruct for PointShareVector {
             }
         }
 
-        cut_tail(&mut acc, G2Projective::identity());
+        cut_tail(&mut acc, G1Projective::identity());
         PointPolynomial { A: acc }
     }
 }
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn interpolation() {
-        let G2 = G2Projective::generator();
+        let G2 = G1Projective::generator();
 
         let threshold = 16;
         let parties = 3*threshold + 1;
