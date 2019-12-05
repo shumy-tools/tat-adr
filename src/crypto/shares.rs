@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::crypto::{rnd_scalar};
 
 use clear_on_drop::clear::Clear;
@@ -159,7 +161,7 @@ impl Mul<Scalar> for Polynomial {
     type Output = Polynomial;
     fn mul(self, rhs: Scalar) -> Polynomial {
         Polynomial {
-            a: self.a.iter().map(|ak| ak * rhs).collect::<Vec<Scalar>>()
+            a: self.a.iter().map(|ak| ak * rhs).collect::<Vec<_>>()
         }
     }
 }
@@ -381,13 +383,13 @@ mod tests {
 
     #[test]
     fn interpolation() {
-        let G2 = G1Projective::generator();
+        let G1 = G1Projective::generator();
 
-        let threshold = 16;
-        let parties = 3*threshold + 1;
+        let threshold = 3;
+        let parties = threshold + 1;
 
         let s = rnd_scalar();
-        let S = G2 * s;
+        let S = G1 * s;
 
         let poly = Polynomial::rnd(s, threshold);
 
@@ -395,8 +397,8 @@ mod tests {
         let s_res = shares.interpolate();
         assert!(s == s_res);
 
-        let S_poly = poly * G2;
-        let S_shares = shares * G2;
+        let S_poly = poly * G1;
+        let S_shares = shares * G1;
         
         for S_sh in S_shares.0.iter() {
             assert!(S_poly.verify(S_sh) == true);
