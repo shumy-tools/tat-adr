@@ -3,18 +3,10 @@
 use sha2::{Sha512, Digest};
 use bls12_381::{Scalar, G1Affine};
 
-/*fn pop(barry: &[u8]) -> &[u8; 3] {
-    barry.try_into().expect("slice with incorrect length")
-}*/
-
-fn hash_c(G1: &G1Affine, P1: &G1Affine, M: &G1Affine, data: &[&[u8]]) -> Scalar {
-    let mut hasher = Sha512::new()
-        .chain(G1.to_compressed().as_ref())
-        .chain(P1.to_compressed().as_ref())
-        .chain(M.to_compressed().as_ref());
-    
+pub fn hash(data: &[&[u8]]) -> Scalar {
+    let mut hasher = Sha512::new();
     for d in data {
-        hasher.input(d);
+        hasher.input(*d);
     }
     
     let result = unsafe {
@@ -22,6 +14,16 @@ fn hash_c(G1: &G1Affine, P1: &G1Affine, M: &G1Affine, data: &[&[u8]]) -> Scalar 
     };
 
     Scalar::from_bytes_wide(result)
+}
+
+fn hash_c(G1: &G1Affine, P1: &G1Affine, M: &G1Affine, data: &[&[u8]]) -> Scalar {
+    let G1_comp = G1.to_compressed();
+    let P1_comp = P1.to_compressed();
+    let M_comp = M.to_compressed();
+
+    let mut all = vec![G1_comp.as_ref(), P1_comp.as_ref(), M_comp.as_ref()];
+    all.extend_from_slice(data);
+    hash(&all)
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -49,7 +51,6 @@ impl Signature {
         let M: G1Affine = (G1 * m).into();
 
         let c = hash_c(G1, P1, &M, data);
-        let p = m - c * s;
 
         Self { c, p: m - c * s }
     }
@@ -72,7 +73,8 @@ pub struct ExtSignature {
 }
 
 impl ExtSignature {
-    pub fn sign(s: &Scalar, G1: &G1Affine, P1: G1Affine, data: &[&[u8]]) -> Self {
+    pub fn sign(s: &Scalar, G1: &G1Affine, data: &[&[u8]]) -> Self {
+        let P1 = (G1 * s).into();
         let sig = Signature::sign(s, G1, &P1, data);
         Self { P1, sig }
     }
@@ -92,13 +94,12 @@ mod tests {
         let G1 = G1Affine::generator();
 
         let s = rnd_scalar();
-        let Ps: G1Affine = (G1 * s).into();
 
         let d0 = rnd_scalar().to_bytes();
         let d1 = rnd_scalar().to_bytes();
 
         let data = &[d0.as_ref(), d1.as_ref()];
-        let sig = ExtSignature::sign(&s, &G1, Ps, data);
+        let sig = ExtSignature::sign(&s, &G1, data);
         
         assert!(sig.verify(&G1, data) == true);
     }
@@ -108,14 +109,13 @@ mod tests {
         let G1 = G1Affine::generator();
 
         let s = rnd_scalar();
-        let Ps: G1Affine = (G1 * s).into();
 
         let d0 = rnd_scalar().to_bytes();
         let d1 = rnd_scalar().to_bytes();
         let d2 = rnd_scalar().to_bytes();
         
         let data1 = &[d0.as_ref(), d1.as_ref()];
-        let sig = ExtSignature::sign(&s, &G1, Ps, data1);
+        let sig = ExtSignature::sign(&s, &G1, data1);
         
         let data2 = &[d0.as_ref(), d2.as_ref()];
         assert!(sig.verify(&G1, data2) == false);

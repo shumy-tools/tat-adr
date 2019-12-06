@@ -324,9 +324,13 @@ define_add_variants!(LHS = ShareVector, RHS = ShareVector, Output = ShareVector)
 impl<'a, 'b> Add<&'b ShareVector> for &'a ShareVector {
     type Output = ShareVector;
     fn add(self, rhs: &'b ShareVector) -> ShareVector {
+        if self.0.len() != rhs.0.len() {
+            panic!("ShareVector must be of the same size!");
+        }
+
         ShareVector(self.0.iter().zip(&rhs.0).map(|(s1, s2)| {
             if s1.i != s2.i {
-                panic!("Shares must be in the same order");
+                panic!("Share in ShareVector must be in the same order!");
             }
 
             Share { i: s1.i, yi: s1.yi + s2.yi }
@@ -388,9 +392,13 @@ define_add_variants!(LHS = PointShareVector, RHS = PointShareVector, Output = Po
 impl<'a, 'b> Add<&'b PointShareVector> for &'a PointShareVector {
     type Output = PointShareVector;
     fn add(self, rhs: &'b PointShareVector) -> PointShareVector {
+        if self.0.len() != rhs.0.len() {
+            panic!("ShareVector must be of the same size!");
+        }
+
         PointShareVector(self.0.iter().zip(&rhs.0).map(|(s1, s2)| {
             if s1.i != s2.i {
-                panic!("Shares must be in the same order");
+                panic!("Share in ShareVector must be in the same order!");
             }
 
             PointShare { i: s1.i, Yi: s1.Yi + s2.Yi }

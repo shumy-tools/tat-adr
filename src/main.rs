@@ -1,82 +1,67 @@
 #![allow(non_snake_case)]
 
+mod tatadr;
 mod crypto;
+
+use crate::tatadr::*;
 use crate::crypto::*;
 
+use clap::{Arg, App};
 use std::time::Instant;
-use sha2::{Sha512, Digest};
-use bls12_381::{pairing, Scalar, G1Affine, G1Projective, G2Affine, G2Prepared};
-
-/*fn thr_gen_token(yi: &ShareVector, mi: &ShareVector, k: &Scalar, R: &G1Projective, Ar: &G1Projective, Akc: &G1Projective) -> (G1Affine, G1Affine) {
-    let PI = yi * R;
-    let Tki = yi * Ar + mi * Akc;
-
-    let Tk = shares.interpolate();
-}*/
-
-fn verif_token(sig: &ExtSignature, Tk: &G1Affine, M: &G1Affine, PI: &G1Affine) -> bool {
-    let G2A = G2Affine::generator();
-    let G2P: G2Prepared = G2A.into();
-
-    let Mk_comp = sig.P1.to_compressed();
-    let Tk_comp = Tk.to_compressed();
-    let M_comp = M.to_compressed();
-    let PI_comp = PI.to_compressed();
-
-    // verification of Schnorr's signature
-    let data = &[Tk_comp.as_ref(), M_comp.as_ref(), PI_comp.as_ref()];
-    if !sig.verify(M, data) {
-        return false
-    }
-
-    // verification of pairing signature
-    let hasher = Sha512::new()
-        .chain(M_comp.as_ref())    
-        .chain(Mk_comp.as_ref())
-        .chain(PI_comp.as_ref());
-
-    let mut result = [0u8; 64];
-    result.copy_from_slice(&hasher.result()[0..64]);
-
-    /*let result = unsafe {
-        &*(hasher.result().as_ptr() as *const [u8; 64])
-    };*/
-    
-    let c = Scalar::from_bytes_wide(&result);
-    pairing(Tk, &G2A) == multi_pairing(&[*PI, (sig.P1 * c).into()], &G2P)
-}
+use bls12_381::G1Affine;
 
 fn main() {
-    let G1 = G1Projective::generator();
-    let G2A = G2Affine::generator();
-    let G2P: G2Prepared = G2A.into();
+    let matches = App::new("Simulations for TAT-ADR")
+        .version("1.0")
+        .author("Micael Pedrosa <micaelpedrosa@ua.pt>")
+        .about("Simulations and measurements for (Threshold access token for anonymous data resources)")
+        .arg(Arg::with_name("threshold")
+            .help("Sets the threshold number (t). The number of parties are set automatically to t+1.")
+            .required(true)
+            .short("t")
+            .long("threshold")
+            .takes_value(true))
+        .get_matches();
+    
+    //let select = matches.value_of("select").unwrap();
 
-    let threshold = 16;
-    let parties = 2*threshold + 1;
+    let str_threshold = matches.value_of("threshold").unwrap();
+    let threshold = str_threshold.parse::<usize>().unwrap();
+    println!("Setup: (threshold={})", threshold);
+
+    // setup network
+    let mut setup = NetworkSetup::new(threshold);
+    setup.location("Hospital");
+    setup.profile("EHR", "Hospital");
+
+    // setup client
+    let session = "rand-session";
+    let k = rnd_scalar();
 
     let start = Instant::now();
-        let k = rnd_scalar();
-        let K = G1 * k;
+        // start session
+        let (Mi, PIi) = setup.start(session, "EHR");
 
-        let poly = Polynomial::rnd(k, threshold);
-        let shares = poly.shares(parties);
+        let M = Mi.interpolate();
+        let Mk = M * k;
+        let PI = PIi.interpolate();
 
-        let r = rnd_scalar();
-        let R = G1 * r;
+        let M_comp = G1Affine::from(M).to_compressed();
+        let Mk_comp = G1Affine::from(Mk).to_compressed();
+        let PI_comp = G1Affine::from(PI).to_compressed();
 
-        let RK = R + K;
+        let c = hash(&[&M_comp, &Mk_comp, &PI_comp]);
+        let Kc = setup.G1 * (k * c);
+        let Akc = setup.A1 * (k * c);
 
-        let p1 = pairing(&RK.into(), &G2A);
-        let K_res = (shares * G1).interpolate();
+        // token request
+        let Tki = setup.request(session, &Akc.into(), &Kc.into());
 
-        for _ in 0..1000 {
-            let p2 = multi_pairing(&[R.into(), K_res.into()], &G2P);
-            assert!(p1 == p2);
-        }
-    
+        let Tk = Tki.interpolate();
+        let token = Token::new(k, Tk.into(), M.into(), PI.into());
+
+        // validate token
+        assert!(token.verify(&setup));
     let run = Instant::now() - start;
     println!("RUN: {:?}ms", run.as_millis());
-    // G2 -> 160ms
-    // G1 (pairing) -> 60ms         (1000 loops) -> 3645ms
-    // G1 (miller loop) -> 57ms     (1000 loops) -> 2030ms
 }
