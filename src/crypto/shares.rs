@@ -61,52 +61,66 @@ pub trait Degree {
 //-----------------------------------------------------------------------------------------------------------
 // Share
 //-----------------------------------------------------------------------------------------------------------
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Share {
     pub i: u32,
     pub yi: Scalar
 }
 
-impl Add<Share> for Share {
+define_add_variants!(LHS = Share, RHS = Share, Output = Share);
+impl<'a, 'b> Add<&'b Share> for &'a Share {
     type Output = Share;
-    fn add(self, rhs: Share) -> Share {
+    fn add(self, rhs: &'b Share) -> Share {
         assert!(self.i == rhs.i);
         Share { i: self.i, yi: self.yi + rhs.yi }
     }
 }
 
-impl Add<Scalar> for Share {
+define_add_variants!(LHS = Share, RHS = Scalar, Output = Share);
+define_add_variants!(LHS = Scalar, RHS = Share, Output = Share);
+define_comut_add!(LHS = Scalar, RHS = Share, Output = Share);
+impl<'a, 'b> Add<&'b Scalar> for &'a Share {
     type Output = Share;
-    fn add(self, rhs: Scalar) -> Share {
+    fn add(self, rhs: &'b Scalar) -> Share {
         Share { i: self.i, yi: self.yi + rhs }
     }
 }
 
-impl Sub<Share> for Share {
+define_sub_variants!(LHS = Share, RHS = Share, Output = Share);
+impl<'a, 'b> Sub<&'b Share> for &'a Share {
     type Output = Share;
-    fn sub(self, rhs: Share) -> Share {
+    fn sub(self, rhs: &'b Share) -> Share {
         assert!(self.i == rhs.i);
         Share { i: self.i, yi: self.yi - rhs.yi }
     }
 }
 
-impl Sub<Scalar> for Share {
+define_sub_variants!(LHS = Share, RHS = Scalar, Output = Share);
+define_sub_variants!(LHS = Scalar, RHS = Share, Output = Share);
+define_comut_sub!(LHS = Scalar, RHS = Share, Output = Share);
+impl<'a, 'b> Sub<&'b Scalar> for &'a Share {
     type Output = Share;
-    fn sub(self, rhs: Scalar) -> Share {
+    fn sub(self, rhs: &'b Scalar) -> Share {
         Share { i: self.i, yi: self.yi - rhs }
     }
 }
 
-impl Mul<Scalar> for Share {
+define_mul_variants!(LHS = Share, RHS = Scalar, Output = Share);
+define_mul_variants!(LHS = Scalar, RHS = Share, Output = Share);
+define_comut_mul!(LHS = Scalar, RHS = Share, Output = Share);
+impl<'a, 'b> Mul<&'b Scalar> for &'a Share {
     type Output = Share;
-    fn mul(self, rhs: Scalar) -> Share {
+    fn mul(self, rhs: &'b Scalar) -> Share {
         Share { i: self.i, yi: self.yi * rhs }
     }
 }
 
-impl Mul<G1Projective> for Share {
+define_mul_variants!(LHS = Share, RHS = G1Projective, Output = PointShare);
+define_mul_variants!(LHS = G1Projective, RHS = Share, Output = PointShare);
+define_comut_mul!(LHS = G1Projective, RHS = Share, Output = PointShare);
+impl<'a, 'b> Mul<&'b G1Projective> for &'a Share {
     type Output = PointShare;
-    fn mul(self, rhs: G1Projective) -> PointShare {
+    fn mul(self, rhs: &'b G1Projective) -> PointShare {
         PointShare { i: self.i, Yi: rhs * self.yi }
     }
 }
@@ -114,29 +128,38 @@ impl Mul<G1Projective> for Share {
 //-----------------------------------------------------------------------------------------------------------
 // PointShare
 //-----------------------------------------------------------------------------------------------------------
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct PointShare {
     pub i: u32,
     pub Yi: G1Projective
 }
 
-impl Add<G1Projective> for PointShare {
+define_add_variants!(LHS = PointShare, RHS = G1Projective, Output = PointShare);
+define_add_variants!(LHS = G1Projective, RHS = PointShare, Output = PointShare);
+define_comut_add!(LHS = G1Projective, RHS = PointShare, Output = PointShare);
+impl<'a, 'b> Add<&'b G1Projective> for &'a PointShare {
     type Output = PointShare;
-    fn add(self, rhs: G1Projective) -> PointShare {
+    fn add(self, rhs: &'b G1Projective) -> PointShare {
         PointShare { i: self.i, Yi: self.Yi + rhs }
     }
 }
 
-impl Sub<G1Projective> for PointShare {
+define_sub_variants!(LHS = PointShare, RHS = G1Projective, Output = PointShare);
+define_sub_variants!(LHS = G1Projective, RHS = PointShare, Output = PointShare);
+define_comut_sub!(LHS = G1Projective, RHS = PointShare, Output = PointShare);
+impl<'a, 'b> Sub<&'b G1Projective> for &'a PointShare {
     type Output = PointShare;
-    fn sub(self, rhs: G1Projective) -> PointShare {
+    fn sub(self, rhs: &'b G1Projective) -> PointShare {
         PointShare { i: self.i, Yi: self.Yi - rhs }
     }
 }
 
-impl Mul<Scalar> for PointShare {
+define_mul_variants!(LHS = PointShare, RHS = Scalar, Output = PointShare);
+define_mul_variants!(LHS = Scalar, RHS = PointShare, Output = PointShare);
+define_comut_mul!(LHS = Scalar, RHS = PointShare, Output = PointShare);
+impl<'a, 'b> Mul<&'b Scalar> for &'a PointShare {
     type Output = PointShare;
-    fn mul(self, rhs: Scalar) -> PointShare {
+    fn mul(self, rhs: &'b Scalar) -> PointShare {
         PointShare { i: self.i, Yi: self.Yi * rhs }
     }
 }
@@ -145,33 +168,41 @@ impl Mul<Scalar> for PointShare {
 // Polynomial
 //-----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Polynomial {
-    pub a: Vec<Scalar>
-}
+pub struct Polynomial(pub Vec<Scalar>);
 
 impl Drop for Polynomial {
     fn drop(&mut self) {
-        for item in self.a.iter_mut() {
+        for item in self.0.iter_mut() {
             item.clear();
         }
     }
 }
 
-impl Mul<Scalar> for Polynomial {
+define_add_variants!(LHS = Polynomial, RHS = Polynomial, Output = Polynomial);
+impl<'a, 'b> Add<&'b Polynomial> for &'a Polynomial {
     type Output = Polynomial;
-    fn mul(self, rhs: Scalar) -> Polynomial {
-        Polynomial {
-            a: self.a.iter().map(|ak| ak * rhs).collect::<Vec<_>>()
-        }
+    fn add(self, rhs: &'b Polynomial) -> Polynomial {
+        Polynomial(self.0.iter().zip(&rhs.0).map(|(a1, a2)| a1 + a2).collect::<Vec<_>>())
     }
 }
 
-impl Mul<G1Projective> for Polynomial {
+define_mul_variants!(LHS = Polynomial, RHS = Scalar, Output = Polynomial);
+define_mul_variants!(LHS = Scalar, RHS = Polynomial, Output = Polynomial);
+define_comut_mul!(LHS = Scalar, RHS = Polynomial, Output = Polynomial);
+impl<'a, 'b> Mul<&'b Scalar> for &'a Polynomial {
+    type Output = Polynomial;
+    fn mul(self, rhs: &'b Scalar) -> Polynomial {
+        Polynomial(self.0.iter().map(|ak| ak * rhs).collect::<Vec<_>>())
+    }
+}
+
+define_mul_variants!(LHS = Polynomial, RHS = G1Projective, Output = PointPolynomial);
+define_mul_variants!(LHS = G1Projective, RHS = Polynomial, Output = PointPolynomial);
+define_comut_mul!(LHS = G1Projective, RHS = Polynomial, Output = PointPolynomial);
+impl<'a, 'b> Mul<&'b G1Projective> for &'a Polynomial {
     type Output = PointPolynomial;
-    fn mul(self, rhs: G1Projective) -> PointPolynomial {
-        PointPolynomial {
-            A: self.a.iter().map(|ak| rhs * ak).collect::<Vec<_>>()
-        }
+    fn mul(self, rhs: &'b G1Projective) -> PointPolynomial {
+        PointPolynomial(self.0.iter().map(|ak| rhs * ak).collect::<Vec<_>>())
     }
 }
 
@@ -182,7 +213,7 @@ impl Polynomial {
         let rnd_coefs: Vec<Scalar> = (0..degree).map(|_| rnd_scalar()).collect();
         coefs.extend(rnd_coefs);
 
-        Polynomial { a: coefs }
+        Polynomial(coefs)
     }
 
     pub fn l_i(range: &[Scalar], i: usize) -> Scalar {
@@ -214,7 +245,7 @@ impl Evaluate for Polynomial {
     type Output = Scalar;
     fn evaluate(&self, x: Scalar) -> Scalar {
         // evaluate using Horner's rule
-        let mut rev = self.a.iter().rev();
+        let mut rev = self.0.iter().rev();
         let head = *rev.next().unwrap();
             
         rev.fold(head, |partial, coef| partial * x + coef)
@@ -223,7 +254,7 @@ impl Evaluate for Polynomial {
 
 impl Degree for Polynomial {
     fn degree(&self) -> usize {
-        self.a.len() - 1
+        self.0.len() - 1
     }
 }
 
@@ -231,16 +262,23 @@ impl Degree for Polynomial {
 // PointPolynomial
 //-----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PointPolynomial {
-    pub A: Vec<G1Projective>
+pub struct PointPolynomial(pub Vec<G1Projective>);
+
+define_add_variants!(LHS = PointPolynomial, RHS = PointPolynomial, Output = PointPolynomial);
+impl<'a, 'b> Add<&'b PointPolynomial> for &'a PointPolynomial {
+    type Output = PointPolynomial;
+    fn add(self, rhs: &'b PointPolynomial) -> PointPolynomial {
+        PointPolynomial(self.0.iter().zip(&rhs.0).map(|(A1, A2)| A1 + A2).collect::<Vec<_>>())
+    }
 }
 
-impl Mul<Scalar> for PointPolynomial {
+define_mul_variants!(LHS = PointPolynomial, RHS = Scalar, Output = PointPolynomial);
+define_mul_variants!(LHS = Scalar, RHS = PointPolynomial, Output = PointPolynomial);
+define_comut_mul!(LHS = Scalar, RHS = PointPolynomial, Output = PointPolynomial);
+impl<'a, 'b> Mul<&'b Scalar> for &'a PointPolynomial {
     type Output = PointPolynomial;
-    fn mul(self, rhs: Scalar) -> PointPolynomial {
-        PointPolynomial {
-            A: self.A.iter().map(|Ak| Ak * rhs).collect::<Vec<_>>()
-        }
+    fn mul(self, rhs: &'b Scalar) -> PointPolynomial {
+        PointPolynomial(self.0.iter().map(|Ak| Ak * rhs).collect::<Vec<_>>())
     }
 }
 
@@ -255,7 +293,7 @@ impl Evaluate for PointPolynomial {
     type Output = G1Projective;
     fn evaluate(&self, x: Scalar) -> G1Projective {
         // evaluate using Horner's rule
-        let mut rev = self.A.iter().rev();
+        let mut rev = self.0.iter().rev();
         let head = *rev.next().unwrap();
             
         rev.fold(head, |partial, coef| partial * x + coef)
@@ -264,7 +302,7 @@ impl Evaluate for PointPolynomial {
 
 impl Degree for PointPolynomial {
     fn degree(&self) -> usize {
-        self.A.len() - 1
+        self.0.len() - 1
     }
 }
 
@@ -282,27 +320,47 @@ impl Drop for ShareVector {
     }
 }
 
-impl Add<Scalar> for ShareVector {
+define_add_variants!(LHS = ShareVector, RHS = ShareVector, Output = ShareVector);
+impl<'a, 'b> Add<&'b ShareVector> for &'a ShareVector {
     type Output = ShareVector;
-    fn add(self, rhs: Scalar) -> ShareVector {
-        let res = self.0.iter().map(|s| Share { i: s.i, yi: s.yi + rhs }).collect::<Vec<_>>();
-        ShareVector(res)
+    fn add(self, rhs: &'b ShareVector) -> ShareVector {
+        ShareVector(self.0.iter().zip(&rhs.0).map(|(s1, s2)| {
+            if s1.i != s2.i {
+                panic!("Shares must be in the same order");
+            }
+
+            Share { i: s1.i, yi: s1.yi + s2.yi }
+        }).collect::<Vec<_>>())
     }
 }
 
-impl Mul<Scalar> for ShareVector {
+define_add_variants!(LHS = ShareVector, RHS = Scalar, Output = ShareVector);
+define_add_variants!(LHS = Scalar, RHS = ShareVector, Output = ShareVector);
+define_comut_add!(LHS = Scalar, RHS = ShareVector, Output = ShareVector);
+impl<'a, 'b> Add<&'b Scalar> for &'a ShareVector {
     type Output = ShareVector;
-    fn mul(self, rhs: Scalar) -> ShareVector {
-        let res = self.0.iter().map(|s| Share { i: s.i, yi: s.yi * rhs }).collect::<Vec<_>>();
-        ShareVector(res)
+    fn add(self, rhs: &'b Scalar) -> ShareVector {
+        ShareVector(self.0.iter().map(|s| Share { i: s.i, yi: s.yi + rhs }).collect::<Vec<_>>())
     }
 }
 
-impl Mul<G1Projective> for ShareVector {
+define_mul_variants!(LHS = ShareVector, RHS = Scalar, Output = ShareVector);
+define_mul_variants!(LHS = Scalar, RHS = ShareVector, Output = ShareVector);
+define_comut_mul!(LHS = Scalar, RHS = ShareVector, Output = ShareVector);
+impl<'a, 'b> Mul<&'b Scalar> for &'a ShareVector {
+    type Output = ShareVector;
+    fn mul(self, rhs: &'b Scalar) -> ShareVector {
+        ShareVector(self.0.iter().map(|s| Share { i: s.i, yi: s.yi * rhs }).collect::<Vec<_>>())
+    }
+}
+
+define_mul_variants!(LHS = ShareVector, RHS = G1Projective, Output = PointShareVector);
+define_mul_variants!(LHS = G1Projective, RHS = ShareVector, Output = PointShareVector);
+define_comut_mul!(LHS = G1Projective, RHS = ShareVector, Output = PointShareVector);
+impl<'a, 'b> Mul<&'b G1Projective> for &'a ShareVector {
     type Output = PointShareVector;
-    fn mul(self, rhs: G1Projective) -> PointShareVector {
-        let res = self.0.iter().map(|s| PointShare { i: s.i, Yi: rhs * s.yi }).collect::<Vec<_>>();
-        PointShareVector(res)
+    fn mul(self, rhs: &'b G1Projective) -> PointShareVector {
+        PointShareVector(self.0.iter().map(|s| PointShare { i: s.i, Yi: rhs * s.yi }).collect::<Vec<_>>())
     }
 }
 
@@ -326,19 +384,37 @@ impl Interpolate for ShareVector {
 #[derive(Debug, Clone)]
 pub struct PointShareVector(pub Vec<PointShare>);
 
-impl Add<G1Projective> for PointShareVector {
+define_add_variants!(LHS = PointShareVector, RHS = PointShareVector, Output = PointShareVector);
+impl<'a, 'b> Add<&'b PointShareVector> for &'a PointShareVector {
     type Output = PointShareVector;
-    fn add(self, rhs: G1Projective) -> PointShareVector {
-        let res = self.0.iter().map(|s| PointShare { i: s.i, Yi: s.Yi + rhs }).collect::<Vec<_>>();
-        PointShareVector(res)
+    fn add(self, rhs: &'b PointShareVector) -> PointShareVector {
+        PointShareVector(self.0.iter().zip(&rhs.0).map(|(s1, s2)| {
+            if s1.i != s2.i {
+                panic!("Shares must be in the same order");
+            }
+
+            PointShare { i: s1.i, Yi: s1.Yi + s2.Yi }
+        }).collect::<Vec<_>>())
     }
 }
 
-impl Mul<Scalar> for PointShareVector {
+define_add_variants!(LHS = PointShareVector, RHS = G1Projective, Output = PointShareVector);
+define_add_variants!(LHS = G1Projective, RHS = PointShareVector, Output = PointShareVector);
+define_comut_add!(LHS = G1Projective, RHS = PointShareVector, Output = PointShareVector);
+impl<'a, 'b> Add<&'b G1Projective> for &'a PointShareVector {
     type Output = PointShareVector;
-    fn mul(self, rhs: Scalar) -> PointShareVector {
-        let res = self.0.iter().map(|s| PointShare { i: s.i, Yi: s.Yi * rhs }).collect::<Vec<_>>();
-        PointShareVector(res)
+    fn add(self, rhs: &'b G1Projective) -> PointShareVector {
+        PointShareVector(self.0.iter().map(|s| PointShare { i: s.i, Yi: s.Yi + rhs }).collect::<Vec<_>>())
+    }
+}
+
+define_mul_variants!(LHS = PointShareVector, RHS = Scalar, Output = PointShareVector);
+define_mul_variants!(LHS = Scalar, RHS = PointShareVector, Output = PointShareVector);
+define_comut_mul!(LHS = Scalar, RHS = PointShareVector, Output = PointShareVector);
+impl<'a, 'b> Mul<&'b Scalar> for &'a PointShareVector {
+    type Output = PointShareVector;
+    fn mul(self, rhs: &'b Scalar) -> PointShareVector {
+        PointShareVector(self.0.iter().map(|s| PointShare { i: s.i, Yi: s.Yi * rhs }).collect::<Vec<_>>())
     }
 }
 
@@ -372,7 +448,7 @@ impl Reconstruct for PointShareVector {
         }
 
         cut_tail(&mut acc, G1Projective::identity());
-        PointPolynomial { A: acc }
+        PointPolynomial(acc)
     }
 }
 

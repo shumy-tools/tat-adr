@@ -1,5 +1,11 @@
+#![allow(dead_code)]
+
 use sha2::{Sha512, Digest};
 use bls12_381::{Scalar, G1Affine};
+
+/*fn pop(barry: &[u8]) -> &[u8; 3] {
+    barry.try_into().expect("slice with incorrect length")
+}*/
 
 fn hash_c(G1: &G1Affine, P1: &G1Affine, M: &G1Affine, data: &[&[u8]]) -> Scalar {
     let mut hasher = Sha512::new()
@@ -10,11 +16,12 @@ fn hash_c(G1: &G1Affine, P1: &G1Affine, M: &G1Affine, data: &[&[u8]]) -> Scalar 
     for d in data {
         hasher.input(d);
     }
-
-    let mut result = [0u8; 64];
-    result.copy_from_slice(&hasher.result()[0..64]);
     
-    Scalar::from_bytes_wide(&result)
+    let result = unsafe {
+        &*(hasher.result().as_ptr() as *const [u8; 64])
+    };
+
+    Scalar::from_bytes_wide(result)
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -44,7 +51,7 @@ impl Signature {
         let c = hash_c(G1, P1, &M, data);
         let p = m - c * s;
 
-        Self { c, p }
+        Self { c, p: m - c * s }
     }
 
     pub fn verify(&self, G1: &G1Affine, P1: &G1Affine, data: &[&[u8]]) -> bool {
@@ -87,10 +94,10 @@ mod tests {
         let s = rnd_scalar();
         let Ps: G1Affine = (G1 * s).into();
 
-        let d0 = rnd_scalar();
-        let d1 = rnd_scalar();
+        let d0 = rnd_scalar().to_bytes();
+        let d1 = rnd_scalar().to_bytes();
 
-        let data = &[d0.to_bytes(), d1.to_bytes()];
+        let data = &[d0.as_ref(), d1.as_ref()];
         let sig = ExtSignature::sign(&s, &G1, Ps, data);
         
         assert!(sig.verify(&G1, data) == true);
@@ -103,14 +110,14 @@ mod tests {
         let s = rnd_scalar();
         let Ps: G1Affine = (G1 * s).into();
 
-        let d0 = rnd_scalar();
-        let d1 = rnd_scalar();
-        let d2 = rnd_scalar();
+        let d0 = rnd_scalar().to_bytes();
+        let d1 = rnd_scalar().to_bytes();
+        let d2 = rnd_scalar().to_bytes();
         
-        let data1 = &[d0.to_bytes().to_vec(), d1.to_bytes().to_vec()];
+        let data1 = &[d0.as_ref(), d1.as_ref()];
         let sig = ExtSignature::sign(&s, &G1, Ps, data1);
         
-        let data2 = &[d0.to_bytes().to_vec(), d2.to_bytes().to_vec()];
+        let data2 = &[d0.as_ref(), d2.as_ref()];
         assert!(sig.verify(&G1, data2) == false);
     }
 }

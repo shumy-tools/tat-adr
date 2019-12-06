@@ -1,6 +1,9 @@
 use rand::{thread_rng, Rng};
 use bls12_381::{multi_miller_loop, Scalar, G1Affine, G2Prepared, Gt};
 
+mod macros;
+pub use crate::crypto::macros::*;
+
 mod shares;
 pub use crate::crypto::shares::*;
 
