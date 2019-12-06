@@ -53,14 +53,12 @@ struct Session {
 
 #[derive(Clone)]
 pub struct Location {
-    l: Scalar,
     pub Yl: G1Projective,
     pub Yl_comp: [u8; 48]
 }
 
 #[derive(Clone)]
 pub struct Profile {
-    r: Scalar,
     pub loc: String,
     pub R: G1Projective,
     pub Ar: G1Projective,
@@ -68,10 +66,10 @@ pub struct Profile {
 }
 
 pub struct NetworkSetup {
+    pub threshold: usize,
+
     pub G1: G1Projective,
     pub G2A: G2Affine,
-
-    pub threshold: usize,
     
     pub Y: G1Projective,
     pub A1: G1Projective,
@@ -89,6 +87,7 @@ pub struct NetworkSetup {
 }
 
 impl NetworkSetup {
+    // NOTE: simulates a network of "threshold + 1" nodes
     pub fn new(threshold: usize) -> Self {
         let G1: G1Projective = G1Projective::generator();
         let G2A: G2Affine = G2Affine::generator();
@@ -109,34 +108,42 @@ impl NetworkSetup {
         let yi = y_poly.shares(threshold + 1);
         let ai = a_poly.shares(threshold + 1);
 
-        Self { G1, G2A, threshold, Y, A1, A2, A2A, A2P, Y_comp, yi, ai, sessions: HashMap::new(), profiles: HashMap::new(), locations: HashMap::new() }
+        Self {
+            threshold,
+            G1, G2A,
+            Y, A1, A2, A2A, A2P,
+            Y_comp, yi, ai,
+            sessions: HashMap::new(), profiles: HashMap::new(), locations: HashMap::new()
+        }
     }
 
-    pub fn location(&mut self, name: &str) {
-        let l = rnd_scalar();
-        let Yl = self.Y * l;
+    // NOTE: simulates insertion of a location
+    pub fn location(&mut self, name: &str, Yl: G1Projective) {
         let Yl_comp = G1Affine::from(Yl).to_compressed();
-
-        self.locations.insert(name.into(), Location { l, Yl, Yl_comp });
+        self.locations.insert(name.into(), Location { Yl, Yl_comp });
     }
 
-    pub fn profile(&mut self, name: &str, loc: &str) {
+    // NOTE: simulates insertion of a profile
+    pub fn profile(&mut self, name: &str, loc: &str, R: G1Projective, Ar: G1Projective) {
         if !self.locations.contains_key(loc) {
             panic!("Location doesn't exist!");
         }
 
-        let r = rnd_scalar();
-        let R = self.G1 * r;
-        let Ar = self.A1 * r;
-        let Ar_comp = G1Affine::from(Ar).to_compressed();
+        // NOTE: (Ar, R) input validation
+        if pairing(&Ar.into(), &self.G2A) != pairing(&R.into(), &self.A2A) {
+            panic!("Ar not valid!");
+        }
 
-        self.profiles.insert(name.into(), Profile { r, loc: loc.into(), R, Ar, Ar_comp });
+        let Ar_comp = G1Affine::from(Ar).to_compressed();
+        self.profiles.insert(name.into(), Profile { loc: loc.into(), R, Ar, Ar_comp });
     }
 
+    // NOTE: start-session returns (Mi, PIi) shares for reconstruction
     pub fn start(&mut self, session: &str, profile: &str) -> (PointShareVector, PointShareVector) {
         let profile = self.profiles.get(profile).expect("Profile doesn't exist!");
         let location = self.locations.get(&profile.loc).expect("Location doesn't exist!");
 
+        // NOTE: mi shares may be re-calculated or stored in the session (stateless vs stateful)
         let mi = self.mi_shares(session, location.Yl_comp.as_ref(), profile.Ar_comp.as_ref());
 
         let res = (&mi * self.G1, &self.yi * profile.R);
@@ -145,15 +152,17 @@ impl NetworkSetup {
         res
     }
 
+    // NOTE: request-token returns Tki shares for reconstruction
     pub fn request(&self, session: &str, Akc: &G1Affine, Kc: &G1Affine) -> PointShareVector {
+        // NOTE: (Akc, Kc) input validation
         if pairing(Akc, &self.G2A) != pairing(Kc, &self.A2A) {
             panic!("Akc not valid!");
         }
 
-        let AkcP: G1Projective = Akc.into();
         let session = self.sessions.get(session.into()).unwrap();
 
-        &self.yi * session.profile.Ar + &session.mi * AkcP
+        // NOTE: all inputs are validated (yi, mi, Ar, Akc)
+        &self.yi * session.profile.Ar + &session.mi * G1Projective::from(Akc)
     }
 
     fn mi_shares(&self, session: &str, Yl: &[u8], Ar: &[u8]) -> ShareVector {

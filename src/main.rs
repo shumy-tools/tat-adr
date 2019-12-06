@@ -31,6 +31,7 @@ fn main() {
             .takes_value(true))
         .get_matches();
 
+    // setup parameters
     let str_threshold = matches.value_of("threshold").unwrap();
     let threshold = str_threshold.parse::<usize>().unwrap();
 
@@ -39,14 +40,17 @@ fn main() {
 
     println!("Setup: (threshold: {}, runs: {})", threshold, runs);
 
+    // setup private keys
+    let l = rnd_scalar(); // location key
+    let r = rnd_scalar(); // profile key
+    let k = rnd_scalar(); // client-token key
+
     // setup network
     let mut setup = NetworkSetup::new(threshold);
-    setup.location("Hospital");
-    setup.profile("EHR", "Hospital");
+    setup.location("Hospital", setup.Y * l);
+    setup.profile("EHR", "Hospital", setup.G1 * r, setup.A1 * r);
 
-    // setup client
-    let k = rnd_scalar();
-
+    // collect stats for runs
     let mut round1 = Duration::from_millis(0);
     let mut round2 = Duration::from_millis(0);
     let mut round3 = Duration::from_millis(0);
