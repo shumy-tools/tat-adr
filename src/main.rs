@@ -109,6 +109,6 @@ fn main() {
     let stat_total = stat1_1 + stat1_2 + stat2_1 + stat2_2 + stat3;
 
 
-    println!("Stats: (start-net: {:?}ms, start-cli: {:?}ms, request-net: {:?}ms, request-cli: {:?}ms, verify: {:?}ms, total: {:?}ms)",
+    println!("Stats: (start-net: {:.3}ms, start-cli: {:.3}ms, request-net: {:.3}ms, request-cli: {:.3}ms, verify: {:.3}ms, total: {:.3}ms)",
         stat1_1, stat1_2, stat2_1, stat2_2, stat3, stat_total);
 }
