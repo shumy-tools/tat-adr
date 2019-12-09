@@ -43,3 +43,15 @@ Stats: (start-net: 0.940ms, start-cli: 6.314ms, request-net: 1.647ms, request-cl
 * "start-cli" and "request-cli" is the time for the client to process the t + 1 responses
 * "verify" is the time for the token public verification
 * "total" is the time for a full roundtrip (generation + verification)
+
+## Results for 100
+Previous results for 100 runs. Experiments were carried out in a single machine running Linux (Ubuntu 18.04.1 LTS) with an Intel i7-7700HQ CPU @ 2.80GHz with 4 physical cores and 16GB of physical memory.
+
+```
+(threshold: 4)   - (start-net: 0.934ms, start-cli:   6.272ms, request-net: 1.645ms, request-cli:  3.477ms, verify: 5.061ms, total:  17.390ms)
+(threshold: 8)   - (start-net: 0.932ms, start-cli:  10.107ms, request-net: 1.324ms, request-cli:  5.402ms, verify: 5.050ms, total:  22.815ms)
+(threshold: 16)  - (start-net: 1.069ms, start-cli:  20.295ms, request-net: 1.304ms, request-cli: 10.563ms, verify: 5.807ms, total:  39.038ms)
+(threshold: 32)  - (start-net: 0.961ms, start-cli:  34.089ms, request-net: 1.070ms, request-cli: 17.490ms, verify: 5.245ms, total:  58.854ms)
+(threshold: 64)  - (start-net: 0.948ms, start-cli:  65.221ms, request-net: 1.006ms, request-cli: 32.932ms, verify: 5.162ms, total: 105.269ms)
+(threshold: 128) - (start-net: 0.955ms, start-cli: 128.949ms, request-net: 0.983ms, request-cli: 64.987ms, verify: 5.181ms, total: 201.055ms)
+```
