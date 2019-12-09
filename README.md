@@ -13,7 +13,7 @@ cargo build --release
 ```
 
 ## Usage
-This project is a tool to measure running times of the proposed P-ID scheme. The tool accepts parameters to setup the number of parties (n) and the threshold value (t).
+This project is a tool to measure running times of the proposed TAT-ADR scheme. The tool accepts parameters to setup the threshold value (t) and number of runs (r).
 
 ```
 Simulations for TAT-ADR 1.0
