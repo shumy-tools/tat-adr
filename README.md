@@ -44,7 +44,7 @@ Stats: (start-net: 0.940ms, start-cli: 6.314ms, request-net: 1.647ms, request-cl
 * "verify" is the time for the token public verification
 * "total" is the time for a full roundtrip (generation + verification)
 
-## Results for 100
+## Results
 Previous results for 100 runs. Experiments were carried out in a single machine running Linux (Ubuntu 18.04.1 LTS) with an Intel i7-7700HQ CPU @ 2.80GHz with 4 physical cores and 16GB of physical memory.
 
 ```
