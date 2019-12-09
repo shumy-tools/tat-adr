@@ -51,10 +51,11 @@ fn main() {
     setup.profile("EHR", "Hospital", setup.G1 * r, setup.A1 * r);
 
     // collect stats for runs
-    let mut round1 = Duration::from_millis(0);
-    let mut round2 = Duration::from_millis(0);
+    let mut round1_1 = Duration::from_millis(0);
+    let mut round1_2 = Duration::from_millis(0);
+    let mut round2_1 = Duration::from_millis(0);
+    let mut round2_2 = Duration::from_millis(0);
     let mut round3 = Duration::from_millis(0);
-    let mut total = Duration::from_millis(0);
 
     let mut rng = rand::thread_rng();
     for _ in 0..runs {
@@ -64,43 +65,50 @@ fn main() {
         let init = Instant::now();
 
             // start session (round 1)
-            let (Mi, PIi) = setup.start(&session, "EHR");
+                let (Mi, PIi) = setup.start(&session, "EHR");
+            let round1_1_i = Instant::now() - init;
 
-            let M = Mi.interpolate();
-            let Mk = M * k;
-            let PI = PIi.interpolate();
+                let M = Mi.interpolate();
+                let Mk = M * k;
+                let PI = PIi.interpolate();
 
-            let M_comp = G1Affine::from(M).to_compressed();
-            let Mk_comp = G1Affine::from(Mk).to_compressed();
-            let PI_comp = G1Affine::from(PI).to_compressed();
+                let M_comp = G1Affine::from(M).to_compressed();
+                let Mk_comp = G1Affine::from(Mk).to_compressed();
+                let PI_comp = G1Affine::from(PI).to_compressed();
 
-            let c = hash(&[&M_comp, &Mk_comp, &PI_comp]);
-            let Kc = setup.G1 * (k * c);
-            let Akc = setup.A1 * (k * c);
-            let round1_i = Instant::now() - init;
+                let c = hash(&[&M_comp, &Mk_comp, &PI_comp]);
+                let Kc = setup.G1 * (k * c);
+                let Akc = setup.A1 * (k * c);
+            let round1_2_i = (Instant::now() - init) - round1_1_i;
 
             // request token (round 2)
-            let Tki = setup.request(&session, &Akc.into(), &Kc.into());
+                let Tki = setup.request(&session, &Akc.into(), &Kc.into());
+            let round2_1_i = (Instant::now() - init) - round1_1_i - round1_2_i;
 
-            let Tk = Tki.interpolate();
-            let token = Token::new(k, Tk.into(), M.into(), PI.into());
-            let round2_i = (Instant::now() - init) - round1_i;
+                let Tk = Tki.interpolate();
+                let token = Token::new(k, Tk.into(), M.into(), PI.into());
+            let round2_2_i = (Instant::now() - init) - round1_1_i - round1_2_i - round2_1_i;
 
             // verify token (round 3)
-            assert!(token.verify(&setup));
-            let round3_i = (Instant::now() - init) - round1_i - round2_i;
+                assert!(token.verify(&setup));
+            let round3_i = (Instant::now() - init) - round1_1_i - round1_2_i - round2_1_i - round2_2_i;
 
-        let total_i = Instant::now() - init;
-
-        round1 += round1_i;
-        round2 += round2_i;
+        round1_1 += round1_1_i;
+        round1_2 += round1_2_i;
+        round2_1 += round2_1_i;
+        round2_2 += round2_2_i;
         round3 += round3_i;
-        total += total_i;
     }
 
-    println!("Stats: (start: {:?}ms, request: {:?}ms, verify: {:?}ms, total/sum: {:?}ms == {:?}ms)",
-    (round1/runs as u32).as_micros() as f64/1000.0,
-    (round2/runs as u32).as_micros() as f64/1000.0,
-    (round3/runs as u32).as_micros() as f64/1000.0,
-    (total/runs as u32).as_micros() as f64/1000.0, ((round1 + round2 + round3)/runs as u32).as_micros() as f64/1000.0);
+    // NOTE: "start" and "request" are simulated in a single thread, but in reality this is a parallel task. It must be divided by (t + 1)
+    let stat1_1 = (round1_1/runs as u32).as_micros() as f64/(1000.0 * (threshold + 1) as f64);
+    let stat1_2 = (round1_2/runs as u32).as_micros() as f64/1000.0;
+    let stat2_1 = (round2_1/runs as u32).as_micros() as f64/(1000.0 * (threshold + 1) as f64);
+    let stat2_2 = (round2_2/runs as u32).as_micros() as f64/1000.0;
+    let stat3 = (round3/runs as u32).as_micros() as f64/1000.0;
+    let stat_total = stat1_1 + stat1_2 + stat2_1 + stat2_2 + stat3;
+
+
+    println!("Stats: (start-net: {:?}ms, start-cli: {:?}ms, request-net: {:?}ms, request-cli: {:?}ms, verify: {:?}ms, total: {:?}ms)",
+        stat1_1, stat1_2, stat2_1, stat2_2, stat3, stat_total);
 }

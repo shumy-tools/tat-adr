@@ -153,13 +153,13 @@ impl NetworkSetup {
     }
 
     // NOTE: request-token returns Tki shares for reconstruction
-    pub fn request(&self, session: &str, Akc: &G1Affine, Kc: &G1Affine) -> PointShareVector {
+    pub fn request(&mut self, session: &str, Akc: &G1Affine, Kc: &G1Affine) -> PointShareVector {
         // NOTE: (Akc, Kc) input validation
         if pairing(Akc, &self.G2A) != pairing(Kc, &self.A2A) {
             panic!("Akc not valid!");
         }
 
-        let session = self.sessions.get(session.into()).unwrap();
+        let session = self.sessions.remove(session.into()).unwrap();
 
         // NOTE: all inputs are validated (yi, mi, Ar, Akc)
         &self.yi * session.profile.Ar + &session.mi * G1Projective::from(Akc)
