@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{Instant, Duration};
 
 use crate::crypto::*;
 use bls12_381::{pairing, Scalar, G1Affine, G1Projective, G2Affine, G2Projective, G2Prepared};
@@ -81,6 +82,7 @@ pub struct NetworkSetup {
     pub yi: ShareVector,
     pub ai: ShareVector,
 
+    last: usize,
     sessions: HashMap<String, Session>,
     profiles: HashMap<String, Profile>,
     locations: HashMap<String, Location>
@@ -113,6 +115,7 @@ impl NetworkSetup {
             G1, G2A,
             Y, A1, A2, A2A, A2P,
             Y_comp, yi, ai,
+            last: 0,
             sessions: HashMap::new(), profiles: HashMap::new(), locations: HashMap::new()
         }
     }
@@ -139,14 +142,34 @@ impl NetworkSetup {
     }
 
     // NOTE: start-session returns (Mi, PIi) shares for reconstruction
-    pub fn start(&mut self, session: &str, profile: &str) -> (PointShareVector, PointShareVector) {
+    pub fn start(&mut self, sig: ExtSignature, profile: &str, seq: usize, time: Instant) -> (PointShareVector, PointShareVector) {
+        //NOTE: verification of client signature
+        let seq_bytes = seq.to_le_bytes();
+        let time_str = format!("{:?}", time);
+        let data = &[profile.as_bytes(), seq_bytes.as_ref(), time_str.as_bytes()];
+        if !sig.verify(&self.G1.into(), data) {
+            panic!("Invalid inputs!");
+        }
+
+        //NOTE: verification of client identity and authorizations should be here. However, these stats are not included in the measurements.
+        
+        let wall = Duration::from_secs(30);
+        let now = Instant::now();
+
+        // NOTE: "seq" and "time" in the correct ranges?
+        if time < now - wall || time > now + wall || seq <= self.last {
+            panic!("Invalid inputs!");
+        }
+        
+        let session = format!("{}-{:?}", seq, time);
         let profile = self.profiles.get(profile).expect("Profile doesn't exist!");
         let location = self.locations.get(&profile.loc).expect("Location doesn't exist!");
 
         // NOTE: mi shares may be re-calculated or stored in the session (stateless vs stateful)
-        let mi = self.mi_shares(session, location.Yl_comp.as_ref(), profile.Ar_comp.as_ref());
+        let mi = self.mi_shares(&session, location.Yl_comp.as_ref(), profile.Ar_comp.as_ref());
 
         let res = (&mi * self.G1, &self.yi * profile.R);
+        self.last += 1;
         self.sessions.insert(session.into(), Session { mi, profile: profile.clone() });
         
         res

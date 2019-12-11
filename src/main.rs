@@ -6,8 +6,6 @@ mod crypto;
 use crate::tatadr::*;
 use crate::crypto::*;
 
-use rand::prelude::*;
-
 use clap::{Arg, App};
 use std::time::{Instant, Duration};
 use bls12_381::G1Affine;
@@ -41,31 +39,44 @@ fn main() {
     println!("Setup: (threshold: {}, runs: {})", threshold, runs);
 
     // setup private keys
-    let l = rnd_scalar(); // location key
-    let r = rnd_scalar(); // profile key
-    let k = rnd_scalar(); // client-token key
+    let l = rnd_scalar();  // location key
+    let r = rnd_scalar();  // profile key
+    let st = rnd_scalar(); // client key
 
     // setup network
+    let profile = "EHR";
+    let location = "Hospital";
+
     let mut setup = NetworkSetup::new(threshold);
-    setup.location("Hospital", setup.Y * l);
-    setup.profile("EHR", "Hospital", setup.G1 * r, setup.A1 * r);
+    setup.location(location, setup.Y * l);
+    setup.profile(profile, location, setup.G1 * r, setup.A1 * r);
 
     // collect stats for runs
+    let mut c_init = Duration::from_millis(0);
     let mut round1_1 = Duration::from_millis(0);
     let mut round1_2 = Duration::from_millis(0);
     let mut round2_1 = Duration::from_millis(0);
     let mut round2_2 = Duration::from_millis(0);
     let mut round3 = Duration::from_millis(0);
 
-    let mut rng = rand::thread_rng();
+    let mut seq = 1usize;
     for _ in 0..runs {
-        let rnd: f64 = rng.gen();
-        let session = format!("rand-session-{}", rnd);
+        let init = Instant::now();
+            // client init
+            seq += 1;
+            let time = Instant::now();
+            let session = format!("{}-{:?}", seq, time);
+            let k = rnd_scalar(); // client-token key
+
+            let seq_bytes = seq.to_le_bytes();
+            let time_str = format!("{:?}", time);
+            let data = &[profile.as_bytes(), seq_bytes.as_ref(), time_str.as_bytes()];
+            let sig = ExtSignature::sign(&st, &setup.G1.into(), data);
+        let c_init_i = Instant::now() - init;
 
         let init = Instant::now();
-
             // start session (round 1)
-                let (Mi, PIi) = setup.start(&session, "EHR");
+                let (Mi, PIi) = setup.start(sig, profile, seq, time);
             let round1_1_i = Instant::now() - init;
 
                 let M = Mi.interpolate();
@@ -93,6 +104,7 @@ fn main() {
                 assert!(token.verify(&setup));
             let round3_i = (Instant::now() - init) - round1_1_i - round1_2_i - round2_1_i - round2_2_i;
 
+        c_init += c_init_i;
         round1_1 += round1_1_i;
         round1_2 += round1_2_i;
         round2_1 += round2_1_i;
@@ -101,14 +113,15 @@ fn main() {
     }
 
     // NOTE: "start" and "request" are simulated in a single thread, but in reality this is a parallel task. It must be divided by (t + 1)
+    let stat_init = (c_init/runs as u32).as_micros() as f64/1000.0;
     let stat1_1 = (round1_1/runs as u32).as_micros() as f64/(1000.0 * (threshold + 1) as f64);
     let stat1_2 = (round1_2/runs as u32).as_micros() as f64/1000.0;
     let stat2_1 = (round2_1/runs as u32).as_micros() as f64/(1000.0 * (threshold + 1) as f64);
     let stat2_2 = (round2_2/runs as u32).as_micros() as f64/1000.0;
     let stat3 = (round3/runs as u32).as_micros() as f64/1000.0;
-    let stat_total = stat1_1 + stat1_2 + stat2_1 + stat2_2 + stat3;
+    let stat_total = stat_init + stat1_1 + stat1_2 + stat2_1 + stat2_2 + stat3;
 
 
-    println!("Stats: (start-net: {:.3}ms, start-cli: {:.3}ms, request-net: {:.3}ms, request-cli: {:.3}ms, verify: {:.3}ms, total: {:.3}ms)",
-        stat1_1, stat1_2, stat2_1, stat2_2, stat3, stat_total);
+    println!("Stats: (init: {:.3}ms, start-net: {:.3}ms, start-cli: {:.3}ms, request-net: {:.3}ms, request-cli: {:.3}ms, verify: {:.3}ms, total: {:.3}ms)",
+        stat_init, stat1_1, stat1_2, stat2_1, stat2_2, stat3, stat_total);
 }
