@@ -17,10 +17,9 @@ pub struct Token {
 impl Token {
     pub fn new(k: Scalar, Tk: G1Affine, M: G1Affine, PI: G1Affine) -> Self {
         let Tk_comp = Tk.to_compressed();
-        let M_comp = M.to_compressed();
         let PI_comp = PI.to_compressed();
 
-        let data = &[Tk_comp.as_ref(), M_comp.as_ref(), PI_comp.as_ref()];
+        let data = &[Tk_comp.as_ref(), PI_comp.as_ref()];
         let sig = ExtSignature::sign(&k, &M, data);
 
         Token { Tk, M, PI, sig }
@@ -33,7 +32,7 @@ impl Token {
         let PI_comp = self.PI.to_compressed();
     
         // verification of Schnorr's signature
-        let data = &[Tk_comp.as_ref(), M_comp.as_ref(), PI_comp.as_ref()];
+        let data = &[Tk_comp.as_ref(), PI_comp.as_ref()];
         if !self.sig.verify(&self.M, data) {
             return false
         }
