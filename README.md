@@ -1,5 +1,5 @@
 # tat-adr
-Threshold Access Token for Anonymous Data Resources
+Holder-of-key threshold access token for anonymous data resources.
 
 ## Dependencies
 * rustc 1.36.0
