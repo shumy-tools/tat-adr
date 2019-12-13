@@ -151,6 +151,7 @@ impl NetworkSetup {
         }
 
         //NOTE: verification of client identity and authorizations should be here. However, these stats are not included in the measurements.
+        // * verify if sig.P1 has access?
         
         let wall = Duration::from_secs(30);
         let now = Instant::now();
@@ -165,7 +166,8 @@ impl NetworkSetup {
         let location = self.locations.get(&profile.loc).expect("Location doesn't exist!");
 
         // NOTE: mi shares may be re-calculated or stored in the session (stateless vs stateful)
-        let mi = self.mi_shares(&session, location.Yl_comp.as_ref(), profile.Ar_comp.as_ref());
+        let Pt_comp = sig.P1.to_compressed();
+        let mi = self.mi_shares(&session, Pt_comp.as_ref(), location.Yl_comp.as_ref(), profile.Ar_comp.as_ref());
 
         let res = (&mi * self.G1, &self.yi * profile.R);
         self.last += 1;
@@ -187,11 +189,11 @@ impl NetworkSetup {
         &self.yi * session.profile.Ar + &session.mi * G1Projective::from(Akc)
     }
 
-    fn mi_shares(&self, session: &str, Yl: &[u8], Ar: &[u8]) -> ShareVector {
+    fn mi_shares(&self, session: &str, Pt: &[u8], Yl: &[u8], Ar: &[u8]) -> ShareVector {
         let mut mi = Vec::<Share>::new();
         for i in 1..=self.threshold+1 {
             let ni = rnd_scalar();
-            let yi = hash(&[ni.to_bytes().as_ref(), session.as_bytes(), self.Y_comp.as_ref(), Yl, Ar]);
+            let yi = hash(&[ni.to_bytes().as_ref(), session.as_bytes(), Pt, self.Y_comp.as_ref(), Yl, Ar]);
             mi.push(Share { i: i as u32, yi });
         }
     
